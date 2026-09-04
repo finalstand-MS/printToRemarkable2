@@ -3,6 +3,23 @@
 Print from Windows 11 directly to a reMarkable 2. Press `Ctrl+P`, choose
 `reMarkable`, done. No xochitl restart, no reload.
 
+## Install
+
+Connect the reMarkable by USB, then in PowerShell **as Administrator**:
+
+```powershell
+cd <this folder>
+.\install.ps1
+```
+
+Print with `Ctrl+P` → `reMarkable` → `Print`.
+
+That is the whole setup. The installer creates the printer, installs the
+watcher, and starts it at every logon. Everything below is detail,
+troubleshooting, and manual alternatives.
+
+---
+
 ## Prerequisites
 
 - [ ] reMarkable 2
@@ -34,11 +51,8 @@ Print from Windows 11 directly to a reMarkable 2. Press `Ctrl+P`, choose
 3. Verify the fixed USB IP is `10.11.99.1`.
 4. Verify Windows can reach `10.11.99.1`.
 
-## Install
-
-Run `install.ps1` as Administrator. It creates the printer, installs the
-watcher, and registers a logon task that keeps it running. Re-running it
-updates everything in place.
+`install.ps1` is idempotent: re-running it updates the printer, the watcher,
+and the logon task in place.
 
 ## Start the watcher at logon
 
