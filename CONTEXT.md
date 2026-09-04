@@ -58,6 +58,29 @@ extension such as `.docx` is removed so titles do not read `report.docx.pdf`.
 - `curl --fail` makes any non-2xx response a non-zero exit, and `--max-time
   120` prevents a hung upload from blocking the loop.
 
+## Code signing
+
+The `.ps1` files are signed with a self-signed certificate
+(`CN=finalstand-MS Code Signing`, SHA256, timestamped via DigiCert) so they run
+under `AllSigned` on the development machine.
+
+Re-sign after every edit; the signature block at the end of each file is part
+of the signed content and any change invalidates it:
+
+```powershell
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert |
+        Where-Object Subject -eq "CN=finalstand-MS Code Signing" |
+        Select-Object -First 1
+
+Get-ChildItem *.ps1 | ForEach-Object {
+    Set-AuthenticodeSignature -FilePath $_.FullName -Certificate $cert `
+        -HashAlgorithm SHA256 -TimestampServer "http://timestamp.digicert.com"
+}
+```
+
+`.gitattributes` marks `*.ps1` as `-text` so git never rewrites line endings,
+which would otherwise break every signature on clone.
+
 ## Do not
 
 - restart xochitl

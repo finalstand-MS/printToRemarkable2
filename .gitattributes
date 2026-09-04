@@ -1,0 +1,4 @@
+# Authenticode signatures are computed over the exact bytes of the file.
+# Any line-ending conversion on checkout invalidates them, so these files
+# are stored and checked out verbatim.
+*.ps1 -text

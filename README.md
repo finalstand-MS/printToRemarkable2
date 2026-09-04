@@ -3,20 +3,82 @@
 Print from Windows 11 directly to a reMarkable 2. Press `Ctrl+P`, choose
 `reMarkable`, done. No xochitl restart, no reload.
 
+> **No warranty, no liability.** This is an unofficial, vibe-coded project that
+> installs a printer, registers a task that runs at every logon, and transmits
+> every document you print to it unencrypted over HTTP to `10.11.99.1`. Read
+> [DISCLAIMER.md](DISCLAIMER.md) before installing. Using it means you accept
+> it. Not affiliated with reMarkable AS or Microsoft.
+
 ## Install
 
-Connect the reMarkable by USB, then in PowerShell **as Administrator**:
+### 1. On the reMarkable
+
+One toggle. **No SSH required.**
+
+`Menu` → `Settings` → `Storage` → **Enable USB web interface** → on
+
+Connect the USB cable and open `http://10.11.99.1` in a browser to confirm it
+works. That is the entire device-side setup.
+
+### 2. On Windows 11
+
+PowerShell **as Administrator**:
 
 ```powershell
 cd <this folder>
 .\install.ps1
 ```
 
-Print with `Ctrl+P` → `reMarkable` → `Print`.
+### 3. Print
+
+`Ctrl+P` → `reMarkable` → `Print`.
 
 That is the whole setup. The installer creates the printer, installs the
 watcher, and starts it at every logon. Everything below is detail,
 troubleshooting, and manual alternatives.
+
+### Signed scripts
+
+The `.ps1` files are Authenticode-signed, so they run under an `AllSigned`
+execution policy **on machines that trust the signing certificate**.
+
+The certificate is self-signed. Your machine does not trust it, and you should
+not be asked to install a stranger's root certificate. If your policy is
+`RemoteSigned` (the Windows default for most setups) the scripts run as-is
+after you unblock them:
+
+```powershell
+Get-ChildItem *.ps1 | Unblock-File
+```
+
+If your policy is `AllSigned`, either relax it for one session:
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
+or sign the scripts with your own certificate. Check what applies to you with
+`Get-ExecutionPolicy -List`.
+
+Verify what you are about to run:
+
+```powershell
+Get-ChildItem *.ps1 | ForEach-Object { Get-AuthenticodeSignature $_ } |
+    Select Path, Status, SignerCertificate
+```
+
+### Optional: SSH
+
+SSH is **not** needed to install or use this. It is only useful for checking
+things when something is wrong. The root password is on the device under
+`Settings` → `Help` → `About` → `Copyrights and licenses`.
+
+```sh
+ssh root@10.11.99.1
+
+ip addr show usb0        # should show 10.11.99.1
+netstat -tlnp | grep :80 # web interface listening
+```
 
 ---
 
@@ -24,8 +86,8 @@ troubleshooting, and manual alternatives.
 
 - [ ] reMarkable 2
 - [ ] USB cable connected to Windows
-- [ ] Fixed USB IP address for the reMarkable: `10.11.99.1`
-- [ ] SSH access to the reMarkable as `root`
+- [ ] USB web interface enabled on the reMarkable
+- [ ] reMarkable reachable at `10.11.99.1`
 - [ ] Microsoft Print to PDF installed on Windows
 - [ ] PowerShell
 - [ ] `curl.exe`
@@ -36,7 +98,8 @@ troubleshooting, and manual alternatives.
 
 - Device: reMarkable 2
 - USB IP: `10.11.99.1`
-- SSH: `ssh root@10.11.99.1`
+- USB web interface: enabled in `Settings` → `Storage`
+- SSH (optional, troubleshooting only): `ssh root@10.11.99.1`
 
 ### Windows
 
@@ -47,9 +110,8 @@ troubleshooting, and manual alternatives.
 ### Before installing
 
 1. Connect the reMarkable to Windows by USB.
-2. SSH into the reMarkable.
-3. Verify the fixed USB IP is `10.11.99.1`.
-4. Verify Windows can reach `10.11.99.1`.
+2. Enable the USB web interface on the device.
+3. Verify Windows can reach `10.11.99.1` in a browser.
 
 `install.ps1` is idempotent: re-running it updates the printer, the watcher,
 and the logon task in place.
@@ -181,6 +243,8 @@ Printing while the reMarkable is unplugged, asleep, or rebooting is safe.
 ## Important
 
 - USB connection is required.
+- The USB web interface must stay enabled; it only serves while the device is
+  connected and awake.
 - The reMarkable must be reachable at `10.11.99.1`.
 - `print.prn` is actually a PDF.
 - Do not restart xochitl.
@@ -192,6 +256,8 @@ Printing while the reMarkable is unplugged, asleep, or rebooting is safe.
 - `remarkable-print.ps1` — queues printed PDFs and uploads them.
 - `uninstall.ps1` — removes the printer, task, and watcher.
 - `CONTEXT.md` — implementation notes.
+- `DISCLAIMER.md` — usage policy, warranty and liability disclaimer.
+- `.gitattributes` — keeps `.ps1` bytes verbatim so signatures survive cloning.
 
 ## Troubleshooting
 
@@ -216,6 +282,6 @@ curl.exe -s -o NUL -w "%{http_code}`n" http://10.11.99.1/
 Re-send a failed job by moving it from `C:\reMarkable\failed` back into
 `C:\reMarkable\queue`.
 
-## License
+## Licence
 
-MIT
+MIT — see [LICENSE](LICENSE) and [DISCLAIMER.md](DISCLAIMER.md).
