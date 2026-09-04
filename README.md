@@ -40,6 +40,80 @@ Run `install.ps1` as Administrator. It creates the printer, installs the
 watcher, and registers a logon task that keeps it running. Re-running it
 updates everything in place.
 
+## Start the watcher at logon
+
+`install.ps1` already registers this. Run it manually only if you skipped the
+installer or the task was removed.
+
+Open PowerShell **as Administrator** and run:
+
+```powershell
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' `
+    -Argument '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\reMarkable\remarkable-print.ps1"'
+
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+
+$settings = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit 0 `
+    -RestartCount 10 `
+    -RestartInterval (New-TimeSpan -Minutes 1) `
+    -MultipleInstances IgnoreNew `
+    -StartWhenAvailable
+
+Register-ScheduledTask -TaskName "reMarkable Print Watcher" `
+    -Action $action -Trigger $trigger -Settings $settings `
+    -RunLevel Highest -Force
+
+Start-ScheduledTask -TaskName "reMarkable Print Watcher"
+```
+
+Verify:
+
+```powershell
+Get-ScheduledTaskInfo "reMarkable Print Watcher" | Select LastRunTime, LastTaskResult
+Get-Content C:\reMarkable\print.log -Tail 5
+```
+
+The log should end with `watcher started`.
+
+### If `Register-ScheduledTask` returns "Access is denied"
+
+The window is not elevated. `C:\Windows\system32` is the default prompt for
+both elevated and normal PowerShell, so check:
+
+```powershell
+[bool](New-Object Security.Principal.WindowsPrincipal(
+    [Security.Principal.WindowsIdentity]::GetCurrent())
+).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+```
+
+If `False`, run `Start-Process powershell -Verb RunAs` and try again.
+
+### Without administrator rights
+
+Use a Startup shortcut instead of a scheduled task, then grant your account
+write access to the working folder so the watcher can delete uploaded jobs:
+
+```powershell
+$s = (New-Object -ComObject WScript.Shell).CreateShortcut(
+     "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\reMarkable Print.lnk")
+$s.TargetPath = "powershell.exe"
+$s.Arguments  = '-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "C:\reMarkable\remarkable-print.ps1"'
+$s.Save()
+
+# once, from an elevated window
+icacls C:\reMarkable /grant "$env:USERNAME:(OI)(CI)M"
+```
+
+### Stop or remove the autostart
+
+```powershell
+Stop-ScheduledTask       -TaskName "reMarkable Print Watcher"
+Unregister-ScheduledTask -TaskName "reMarkable Print Watcher" -Confirm:$false
+```
+
 ## Print
 
 1. Press `Ctrl+P`.
