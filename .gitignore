@@ -1,2 +1,6 @@
 *.prn
 *.pdf
+*.log
+*.log.old
+queue/
+failed/

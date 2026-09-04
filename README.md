@@ -1,6 +1,7 @@
 # reMarkable Windows Print
 
-Print from Windows 11 directly to a reMarkable 2.
+Print from Windows 11 directly to a reMarkable 2. Press `Ctrl+P`, choose
+`reMarkable`, done. No xochitl restart, no reload.
 
 ## Prerequisites
 
@@ -23,7 +24,7 @@ Print from Windows 11 directly to a reMarkable 2.
 ### Windows
 
 - USB network IP: `10.11.99.14`
-- Temporary print file: `C:\reMarkable\print.prn`
+- Working folder: `C:\reMarkable`
 - Windows printer: `reMarkable`
 
 ### Before installing
@@ -35,8 +36,9 @@ Print from Windows 11 directly to a reMarkable 2.
 
 ## Install
 
-1. Run `install.ps1` as Administrator.
-2. Start `remarkable-print.ps1`.
+Run `install.ps1` as Administrator. It creates the printer, installs the
+watcher, and registers a logon task that keeps it running. Re-running it
+updates everything in place.
 
 ## Print
 
@@ -45,16 +47,48 @@ Print from Windows 11 directly to a reMarkable 2.
 3. Click `Print`.
 4. The PDF appears on the reMarkable.
 
-No xochitl restart or reload is required.
-
 ## How it works
 
 `Ctrl+P`
 → `reMarkable`
 → Microsoft Print to PDF
 → `C:\reMarkable\print.prn`
-→ `/upload`
+→ `C:\reMarkable\queue\<document>.pdf`
+→ `POST /upload` on `10.11.99.1`
 → reMarkable library
+
+The document title is read from the Windows print queue while the job is still
+spooling, so files land on the device with their real name instead of
+`print.prn`. If the title cannot be read, a timestamp is used.
+
+## Disconnection
+
+Printing while the reMarkable is unplugged, asleep, or rebooting is safe.
+
+- Jobs are captured into `C:\reMarkable\queue` before any upload is attempted,
+  so a second print can never overwrite a pending one.
+- Nothing is deleted until the device confirms the upload.
+- The queue drains oldest-first as soon as the device is reachable again.
+- Time spent unreachable does not count as a failed attempt. After 5 failures
+  *while reachable*, a job moves to `C:\reMarkable\failed` instead of retrying
+  forever.
+- Everything is logged to `C:\reMarkable\print.log` (rotated at 512 KB).
+
+## Restarts
+
+| Restart | Result |
+|---|---|
+| reMarkable | Works. Queue uploads once the device is reachable again. |
+| Windows | Works. The logon task restarts the watcher. |
+| USB unplug / replug | Works. Queue drains on reconnect. |
+
+## Behaviour notes
+
+- The watcher waits for the spooler to release the file, so large documents are
+  never uploaded half-written.
+- Files that are not valid PDFs are moved to `failed` rather than uploaded.
+- A mutex prevents two watchers from running and double-uploading.
+- The logon task restarts the watcher up to 10 times if the process dies.
 
 ## Important
 
@@ -66,7 +100,34 @@ No xochitl restart or reload is required.
 
 ## Files
 
-- `install.ps1` — installs the Windows printer.
-- `remarkable-print.ps1` — watches for printed PDFs and uploads them.
-- `uninstall.ps1` — removes the printer.
+- `install.ps1` — printer, watcher, logon task.
+- `remarkable-print.ps1` — queues printed PDFs and uploads them.
+- `uninstall.ps1` — removes the printer, task, and watcher.
 - `CONTEXT.md` — implementation notes.
+
+## Troubleshooting
+
+Check the log first:
+
+```powershell
+Get-Content C:\reMarkable\print.log -Tail 20
+```
+
+Watcher running?
+
+```powershell
+Get-ScheduledTaskInfo "reMarkable Print Watcher" | Select LastRunTime, LastTaskResult
+```
+
+Device reachable?
+
+```powershell
+curl.exe -s -o NUL -w "%{http_code}`n" http://10.11.99.1/
+```
+
+Re-send a failed job by moving it from `C:\reMarkable\failed` back into
+`C:\reMarkable\queue`.
+
+## License
+
+MIT
