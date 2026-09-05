@@ -74,7 +74,7 @@ If you do not accept all of this, do not install or use this software.
 
 This project was written quickly and with heavy AI assistance ("vibe coded").
 It has not been formally reviewed, audited, or tested beyond one person's
-machine. Treat it accordingly.
+machine. Treat it accordingly. Heck, to be honest only this single line of thoughts was not hallucinated.
 
 ## Licence
 
